@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.models import Batch, ConflictLog, Oven, Product
 from app.schemas.schemas import (
+    ActualOutIn,
     BatchCreate,
     BatchOut,
     ConflictOut,
@@ -18,6 +19,7 @@ from app.services.oven_engine import (
     RecipeDurations,
     build_occupancies,
     find_conflicts,
+    is_within_bake,
     next_free_window,
 )
 
@@ -35,7 +37,8 @@ def _all_occupancies(db: Session) -> list[Occupancy]:
         p = db.get(Product, b.product_id)
         if not p:
             continue
-        out.extend(build_occupancies(b.oven_id, b.id, b.start_min, _recipe(p)))
+        # 已登记实际出炉的批次，烘烤段按实际出炉截断（发酵段不动）
+        out.extend(build_occupancies(b.oven_id, b.id, b.start_min, _recipe(p), b.actual_out_min))
     return out
 
 
@@ -55,6 +58,7 @@ def _batch_out(db: Session, b: Batch) -> BatchOut:
         oven_label=o.label if o else None,
         ferment_end=ferment_end,
         bake_end=bake_end,
+        actual_out_min=b.actual_out_min,
     )
 
 
@@ -111,6 +115,30 @@ def create_batch(body: BatchCreate, db: Session = Depends(get_db)):
     return _batch_out(db, batch)
 
 
+@api_router.post("/batches/{batch_id}/actual-out", response_model=BatchOut)
+def register_actual_out(batch_id: int, body: ActualOutIn, db: Session = Depends(get_db)):
+    batch = db.get(Batch, batch_id)
+    if not batch:
+        raise HTTPException(404, "批次不存在")
+    product = db.get(Product, batch.product_id)
+    if not product:
+        raise HTTPException(404, "产品不存在")
+    recipe = _recipe(product)
+    bake_start = batch.start_min + recipe.ferment_min
+    bake_end = bake_start + recipe.bake_min
+    # 只允许截在烘烤段内：不得早于烘烤起点，不得晚于原烘烤结束
+    if not is_within_bake(body.actual_out_min, batch.start_min, recipe):
+        raise HTTPException(
+            400,
+            f"实际出炉分钟 {body.actual_out_min} 不在烘烤段 "
+            f"[{bake_start}, {bake_end}] 内，已拒绝登记",
+        )
+    batch.actual_out_min = body.actual_out_min
+    db.commit()
+    db.refresh(batch)
+    return _batch_out(db, batch)
+
+
 @api_router.get("/gantt", response_model=list[GanttBlock])
 def gantt(db: Session = Depends(get_db)):
     blocks: list[GanttBlock] = []
@@ -119,7 +147,7 @@ def gantt(db: Session = Depends(get_db)):
         o = db.get(Oven, b.oven_id)
         if not p or not o:
             continue
-        for occ in build_occupancies(b.oven_id, b.id, b.start_min, _recipe(p)):
+        for occ in build_occupancies(b.oven_id, b.id, b.start_min, _recipe(p), b.actual_out_min):
             blocks.append(
                 GanttBlock(
                     batch_id=b.id,

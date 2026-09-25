@@ -28,6 +28,8 @@ class Batch(Base):
     oven_id: Mapped[int] = mapped_column(ForeignKey("ovens.id"))
     code: Mapped[str] = mapped_column(String(40), unique=True)
     start_min: Mapped[int] = mapped_column(Integer)  # minutes from 00:00
+    # 实际出炉分钟；登记后用于截断烘烤段，NULL 表示未登记（维持原烘烤结束）
+    actual_out_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="scheduled")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

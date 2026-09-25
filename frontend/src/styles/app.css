@@ -248,6 +248,17 @@ select, input, .gantt-deck button, .toolbar button {
 .mono { font-family: "IBM Plex Mono", monospace; }
 .err { color: #ff9b7a; } .ok { color: #e8c48a; }
 
+/* 实际出炉登记单元格 */
+.actual-out { display: flex; align-items: center; gap: .35rem; }
+.actual-out button { padding: .3rem .55rem; font-size: .8rem; }
+.muted { color: var(--bake-muted); font-size: .72rem; font-family: "IBM Plex Mono", monospace; }
+.ok-text { color: #8ada60; font-size: .72rem; }
+.err-text {
+  color: #ff9b7a; font-weight: 800; cursor: help; font-size: .85rem;
+  border: 1px solid #c06040; border-radius: 50%; width: 18px; height: 18px;
+  display: inline-grid; place-items: center; flex: 0 0 auto;
+}
+
 .gantt { display: flex; flex-direction: column; gap: .65rem; }
 .gantt-row {
   display: grid;

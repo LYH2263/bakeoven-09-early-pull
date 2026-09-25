@@ -32,14 +32,30 @@ class Occupancy:
     batch_id: int
 
 
+def bake_window(start_min: int, recipe: RecipeDurations) -> Interval:
+    """Original (planned) half-open bake interval, half-open: [bake_start, bake_end)."""
+    bake_start = start_min + recipe.ferment_min
+    return Interval(bake_start, bake_start + recipe.bake_min)
+
+
+def is_within_bake(actual_out_min: int, start_min: int, recipe: RecipeDurations) -> bool:
+    """实际出炉分钟是否合法：不得早于烘烤起点，不得晚于原烘烤结束。"""
+    bw = bake_window(start_min, recipe)
+    return bw.start <= actual_out_min <= bw.end
+
+
 def build_occupancies(
     oven_id: int,
     batch_id: int,
     start_min: int,
     recipe: RecipeDurations,
+    actual_out_min: int | None = None,
 ) -> list[Occupancy]:
     ferment = Interval(start_min, start_min + recipe.ferment_min)
-    bake = Interval(ferment.end, ferment.end + recipe.bake_min)
+    bake = bake_window(start_min, recipe)
+    # 提前出炉只截断烘烤段：发酵段起止不动，烘烤段以实际出炉分钟收尾（半开）
+    if actual_out_min is not None and bake.start <= actual_out_min < bake.end:
+        bake = Interval(bake.start, actual_out_min)
     return [
         Occupancy(oven_id, ferment, "ferment", batch_id),
         Occupancy(oven_id, bake, "bake", batch_id),

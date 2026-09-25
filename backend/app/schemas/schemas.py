@@ -28,6 +28,7 @@ class BatchOut(BaseModel):
     oven_label: str | None = None
     ferment_end: int | None = None
     bake_end: int | None = None
+    actual_out_min: int | None = None
     model_config = {"from_attributes": True}
 
 
@@ -36,6 +37,10 @@ class BatchCreate(BaseModel):
     oven_id: int
     start_min: int = Field(ge=0, le=24 * 60 - 1)
     code: str | None = None
+
+
+class ActualOutIn(BaseModel):
+    actual_out_min: int = Field(ge=0, le=24 * 60 - 1)
 
 
 class GanttBlock(BaseModel):

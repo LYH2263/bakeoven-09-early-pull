@@ -4,8 +4,15 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
   });
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || res.statusText);
+    let msg = res.statusText;
+    try {
+      const data = await res.json();
+      msg = typeof data?.detail === "string" ? data.detail : JSON.stringify(data);
+    } catch {
+      const text = await res.text();
+      if (text) msg = text;
+    }
+    throw new Error(msg);
   }
   if (res.status === 204) return undefined as T;
   return res.json();

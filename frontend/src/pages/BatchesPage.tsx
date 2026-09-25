@@ -1,8 +1,35 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 type P = { id: number; name: string }; type O = { id: number; label: string };
-type B = { id: number; code: string; product_name?: string; oven_label?: string; start_min: number; ferment_end?: number; bake_end?: number; status: string };
+type B = { id: number; code: string; product_name?: string; oven_label?: string; start_min: number; ferment_end?: number; bake_end?: number; actual_out_min?: number | null; status: string };
 function fmt(m: number) { const h = Math.floor(m/60), mm = m%60; return `${String(h).padStart(2,"0")}:${String(mm).padStart(2,"0")}`; }
+
+function ActualOutCell({ b, onSaved }: { b: B; onSaved: () => void }) {
+  const [val, setVal] = useState<number | "">(b.actual_out_min ?? "");
+  const [msg, setMsg] = useState("");
+  const [err, setErr] = useState("");
+  useEffect(() => { setVal(b.actual_out_min ?? ""); }, [b.actual_out_min]);
+  async function register() {
+    setMsg(""); setErr("");
+    if (val === "") return;
+    try {
+      await api(`/batches/${b.id}/actual-out`, { method: "POST", body: JSON.stringify({ actual_out_min: Number(val) }) });
+      setMsg("已登记");
+      onSaved();
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+  }
+  const bakeStart = b.ferment_end ?? b.start_min;
+  const bakeEnd = b.bake_end ?? b.start_min;
+  return (<div className="actual-out">
+    <input type="number" min={bakeStart} max={bakeEnd} value={val} onChange={e => setVal(e.target.value === "" ? "" : Number(e.target.value))}
+      style={{ width: 78 }} title={`烘烤段 ${fmt(bakeStart)}–${fmt(bakeEnd)}（分钟 ${bakeStart}–${bakeEnd}）`} />
+    <button onClick={register}>{b.actual_out_min == null ? "登记" : "改登"}</button>
+    {b.actual_out_min != null && <span className="muted">现 {fmt(b.actual_out_min)}</span>}
+    {msg && <span className="ok-text">{msg}</span>}
+    {err && <span className="err-text" title={err}>✗</span>}
+  </div>);
+}
+
 export default function BatchesPage() {
   const [products, setProducts] = useState<P[]>([]);
   const [ovens, setOvens] = useState<O[]>([]);
@@ -33,9 +60,11 @@ export default function BatchesPage() {
     </div>
     {msg && <div className="ok">{msg}</div>}
     {err && <div className="err">{err}</div>}
-    <table className="table"><thead><tr><th>批次</th><th>产品</th><th>炉位</th><th>发酵</th><th>烘烤结束</th><th>状态</th></tr></thead>
+    <table className="table"><thead><tr><th>批次</th><th>产品</th><th>炉位</th><th>发酵</th><th>烘烤结束</th><th>实际出炉</th><th>状态</th></tr></thead>
     <tbody>{rows.map(b => <tr key={b.id}><td className="mono">{b.code}</td><td>{b.product_name}</td><td>{b.oven_label}</td>
       <td className="mono">{fmt(b.start_min)}–{fmt(b.ferment_end ?? b.start_min)}</td>
-      <td className="mono">{fmt(b.bake_end ?? b.start_min)}</td><td>{b.status}</td></tr>)}</tbody></table>
+      <td className="mono">{fmt(b.bake_end ?? b.start_min)}</td>
+      <td><ActualOutCell b={b} onSaved={reload} /></td>
+      <td>{b.status}</td></tr>)}</tbody></table>
   </>);
 }
