@@ -28,6 +28,7 @@ class Batch(Base):
     oven_id: Mapped[int] = mapped_column(ForeignKey("ovens.id"))
     code: Mapped[str] = mapped_column(String(40), unique=True)
     start_min: Mapped[int] = mapped_column(Integer)  # minutes from 00:00
+    actual_bake_end_min: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 实际出炉分钟（提前出炉）
     status: Mapped[str] = mapped_column(String(20), default="scheduled")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

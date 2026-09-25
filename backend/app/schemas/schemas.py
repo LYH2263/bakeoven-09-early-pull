@@ -28,7 +28,12 @@ class BatchOut(BaseModel):
     oven_label: str | None = None
     ferment_end: int | None = None
     bake_end: int | None = None
+    actual_bake_end_min: int | None = None
     model_config = {"from_attributes": True}
+
+
+class ActualBakeEndIn(BaseModel):
+    actual_bake_end_min: int = Field(ge=0)
 
 
 class BatchCreate(BaseModel):
